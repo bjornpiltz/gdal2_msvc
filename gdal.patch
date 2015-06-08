@@ -1,0 +1,201 @@
+diff -ruN gdal-1.11.1-pristine/makefile.vc gdal-1.11.1-changed/makefile.vc
+--- gdal-1.11.1-pristine/makefile.vc	Wed Sep 24 04:48:06 2014
++++ gdal-1.11.1-changed/makefile.vc	Tue Jan 27 15:17:33 2015
+@@ -61,11 +61,11 @@
+ DISTDIR	=	gdal_$(VERSION)
+ 
+ default:	port_dir ogr_dir core_dir frmts_dir $(VB6_TARGET) $(GDAL_DLL) \
+-		plugin_dir apps_dir 
++		plugin_dir 
+ 
+ staticlib:
+-	if exist gdal.lib del gdal.lib
+-	lib /nologo /out:gdal.lib $(LIBOBJ)
++	if exist $(GDAL_LIB) del $(GDAL_LIB)
++	lib /nologo /out:$(GDAL_LIB) $(LIBOBJ)
+ 
+ target-lib: port_dir ogr_dir core_dir frmts_dir dll
+ 
+@@ -85,19 +85,17 @@
+ 	cd ogr
+ 	$(MAKE) /f makefile.vc allclean
+ 	cd ..
+-	cd apps
+-	$(MAKE) /f makefile.vc clean
+-	cd ..
+ 	cd swig
+ 	$(MAKE) /f makefile.vc clean
+ 	cd ..
+ 	cd vb6
+ 	$(MAKE) /f makefile.vc clean
+ 	cd ..
+-	if exist gdal.lib del gdal.lib
++	if exist $(GDAL_LIB) del $(GDAL_LIB)
+ 	if exist $(GDAL_DLL) del $(GDAL_DLL)
+ 	if exist $(GDAL_DLL).manifest del $(GDAL_DLL).manifest
+ 	if exist gdal_i.lib del gdal_i.*
++	if exist gdal_id.lib del gdal_id.*
+ 	-del *.ilk
+ 	-del *.pdb
+ 
+@@ -133,11 +131,6 @@
+ 	cd ..\..
+ !ENDIF
+ 
+-apps_dir:
+-	cd apps
+-	$(MAKE) /f makefile.vc
+-	cd ..
+-
+ vb6_dir:
+ 	cd vb6
+ 	$(MAKE) /f makefile.vc
+@@ -159,25 +152,23 @@
+ lib_dist:	default
+ 	rm -rf $(DISTDIR)
+ 	mkdir $(DISTDIR)
+-	cp gdal.lib port\*.h gcore\*.h ogr\*.h $(DISTDIR)
++	cp $(GDAL_LIB) port\*.h gcore\*.h ogr\*.h $(DISTDIR)
+ 	zip -r $(DISTDIR).zip $(DISTDIR)
+ 
+ $(GDAL_DLL): staticlib
+ 	link /nologo /dll $(OGR_INCLUDE) $(BASE_INCLUDE) $(LIBOBJ) \
+ 		$(EXTERNAL_LIBS) gcore\Version.res \
+-		 /out:$(GDAL_DLL) /implib:gdal_i.lib $(LINKER_FLAGS)
++		 /out:$(GDAL_DLL) /implib:$(GDAL_IMP_LIB) $(LINKER_FLAGS)
+     if exist $(GDAL_DLL).manifest mt -manifest $(GDAL_DLL).manifest -outputresource:$(GDAL_DLL);2
+ 
+ dll:	$(GDAL_DLL)
+ 
+-install: $(GDAL_DLL) plugin_dir apps_dir 
++install: $(GDAL_DLL) plugin_dir  
+ 	-mkdir $(BINDIR)
+ 	-mkdir $(DATADIR)
+ 	$(INSTALL) $(GDAL_DLL) $(BINDIR)
+ 	cd frmts
+ 	$(MAKE) /f makefile.vc plugins-install
+-	cd ..\apps
+-	$(MAKE) /f makefile.vc install
+ 	cd ..
+ 	$(INSTALL) data\*.* $(DATADIR)
+ 	$(INSTALL) LICENSE.TXT $(DATADIR)
+@@ -212,5 +203,5 @@
+ !IFDEF INCLUDE_OGR_FRMTS
+ 	copy ogr\ogrsf_frmts\*.h $(INCDIR)
+ !ENDIF
+-	copy gdal_i.lib $(LIBDIR)
++	copy $(GDAL_IMP_LIB) $(LIBDIR)
+ 
+diff -ruN gdal-1.11.1-pristine/nmake.opt gdal-1.11.1-changed/nmake.opt
+--- gdal-1.11.1-pristine/nmake.opt	Wed Sep 24 04:48:06 2014
++++ gdal-1.11.1-changed/nmake.opt	Tue Jan 27 15:16:09 2015
+@@ -18,6 +18,10 @@
+ # For convenience, user may put custom settings in a local settings file
+ # named nmake.local, or a name defined by the EXT_NMAKE_OPT option.
+ 
++!IF "$(CONFIGURATION)" == "Debug"
++DEBUG=1
++!ENDIF
++
+ !IF EXIST("$(GDAL_ROOT)\nmake.local")
+ !INCLUDE $(GDAL_ROOT)\nmake.local
+ !ENDIF
+@@ -119,8 +123,12 @@
+ !ENDIF
+ 
+ !IFDEF WITH_PDB
++!IFNDEF DEBUG
+ CXX_PDB_FLAGS=/Zi /Fd$(GDAL_ROOT)\gdal$(VERSION).pdb
+ !ELSE
++CXX_PDB_FLAGS=/Zi /Fd$(GDAL_ROOT)\gdal$(VERSION)d.pdb
++!ENDIF
++!ELSE
+ CXX_PDB_FLAGS=
+ !ENDIF
+ 
+@@ -129,13 +137,13 @@
+ !IFNDEF DEBUG
+ OPTFLAGS= $(CXX_ANALYZE_FLAGS) $(CXX_PDB_FLAGS) /nologo /MD /EHsc /Ox /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE /DNDEBUG
+ !ELSE
+-OPTFLAGS= $(CXX_ANALYZE_FLAGS) $(CXX_PDB_FLAGS) /nologo /MD /EHsc /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE /DDEBUG
++OPTFLAGS= $(CXX_ANALYZE_FLAGS) $(CXX_PDB_FLAGS) /nologo /MDd /EHsc /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE /DDEBUG
+ !ENDIF
+ !ELSE
+ !IFNDEF DEBUG
+ OPTFLAGS= $(CXX_PDB_FLAGS) /nologo /MD /EHsc /GR /Ox /DNDEBUG
+ !ELSE
+-OPTFLAGS= $(CXX_PDB_FLAGS) /nologo /MD /EHsc /GR /DDEBUG
++OPTFLAGS= $(CXX_PDB_FLAGS) /nologo /MDd /EHsc /GR /DDEBUG
+ !ENDIF
+ !ENDIF  #MSVC_VER
+ !ENDIF  # OPTFLAGS
+@@ -168,7 +176,7 @@
+ # Uncomment the following if you are building for 64-bit windows
+ # (x64). You'll need to have PATH, INCLUDE and LIB set up for 64-bit
+ # compiles.
+-#WIN64=YES
++WIN64=YES
+ 
+ # If you don't want some entry points to have STDCALL conventions, 
+ # comment out the following and add -DCPL_DISABLE_STDCALL in OPTFLAGS.
+@@ -449,9 +457,13 @@
+ # PROJ.4 stuff
+ # Uncomment the following lines to link PROJ.4 library statically. Otherwise
+ # it will be linked dynamically during runtime.
+-#PROJ_FLAGS = -DPROJ_STATIC
+-#PROJ_INCLUDE = -Id:\projects\proj.4\src
+-#PROJ_LIBRARY = d:\projects\proj.4\src\proj_i.lib
++PROJ_FLAGS = -DPROJ_STATIC
++PROJ_INCLUDE = -I$(GDAL_HOME)/include
++!IFDEF DEBUG
++PROJ_LIBRARY = $(GDAL_HOME)/lib/projd.lib
++!ELSE
++PROJ_LIBRARY = $(GDAL_HOME)/lib/proj.lib
++!ENDIF
+ 
+ # Add ORACLE support.
+ # Uncomment the following line to enable OCI Oracle Spatial support.
+@@ -510,8 +522,12 @@
+ 
+ # Uncomment for GEOS support (GEOS >= 3.1.0 required)
+ #GEOS_DIR=C:/warmerda/geos
+-#GEOS_CFLAGS = -I$(GEOS_DIR)/capi -I$(GEOS_DIR)/source/headers -DHAVE_GEOS
+-#GEOS_LIB     = $(GEOS_DIR)/source/geos_c_i.lib
++GEOS_CFLAGS = -I$(GDAL_HOME)/include -DHAVE_GEOS
++!IFDEF DEBUG
++GEOS_LIB     = $(GDAL_HOME)/lib/geos_cd.lib
++!ELSE
++GEOS_LIB     = $(GDAL_HOME)/lib/geos_c.lib
++!ENDIF
+ 
+ # Uncomment for SOSI support
+ #SOSI_PLUGIN = YES
+@@ -584,7 +600,15 @@
+ # Location of MS Data Access SDK (not really needed anymore I think)
+ #MSDASDK =	D:\Software\MDAC_2.6
+ 
+-GDAL_DLL =	gdal$(VERSION).dll
++!IFNDEF DEBUG
++GDAL_DLL =	gdal$(VERSION).dll
++GDAL_LIB =	gdal.lib
++GDAL_IMP_LIB =	gdal_i.lib
++!ELSE
++GDAL_DLL =	gdal$(VERSION)d.dll
++GDAL_LIB =	gdald.lib
++GDAL_IMP_LIB =	gdal_id.lib
++!ENDIF
+ 
+ INC	=	-I$(GDAL_ROOT)\port -I$(GDAL_ROOT)\ogr -I$(GDAL_ROOT)\gcore \
+ 		-I$(GDAL_ROOT)\alg -I$(GDAL_ROOT)\ogr\ogrsf_frmts
+@@ -619,9 +643,9 @@
+ CPLLIB	=    $(GDAL_ROOT)/port/cpl.lib
+ 
+ !IFDEF DLLBUILD
+-GDALLIB	=    $(GDAL_ROOT)/gdal_i.lib
++GDALLIB	=    $(GDAL_ROOT)/$(GDAL_IMP_LIB).lib
+ !ELSE
+-GDALLIB	=    $(GDAL_ROOT)/gdal.lib
++GDALLIB	=    $(GDAL_ROOT)/$(GDAL_LIB)
+ !ENDIF
+ 
+ !IFDEF ODBC_SUPPORTED

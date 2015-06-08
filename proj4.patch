@@ -1,0 +1,95 @@
+diff -ruN proj4-pristine/nmake.opt proj4-changed/nmake.opt
+--- proj4-pristine/nmake.opt	Sun Dec  5 07:06:32 2010
++++ proj4-changed/nmake.opt	Wed Jan 28 15:32:06 2015
+@@ -2,6 +2,10 @@
+ !INCLUDE $(EXT_NMAKE_OPT)
+ !ENDIF
+ 
++!IF "$(CONFIGURATION)" == "Debug"
++DEBUG = 1
++!ENDIF
++
+ # Directory tree where PROJ will be installed.
+ !IFNDEF INSTDIR
+ INSTDIR=C:\PROJ
+@@ -24,7 +28,7 @@
+ !IFNDEF DEBUG
+ OPTFLAGS=	/nologo /Ox /Op /MD
+ !ELSE
+-OPTFLAGS=	/nologo /Zi /MD /Fdproj.pdb
++OPTFLAGS=	/nologo /Zi /MDd /Fdprojd.pdb
+ !ENDIF
+ !ENDIF
+ 
+diff -ruN proj4-pristine/src/makefile.vc proj4-changed/src/makefile.vc
+--- proj4-pristine/src/makefile.vc	Tue Mar  6 20:58:50 2012
++++ proj4-changed/src/makefile.vc	Wed Jan 28 15:30:22 2015
+@@ -59,7 +59,11 @@
+ PROJEXE_OBJ	= proj.obj gen_cheb.obj p_series.obj emess.obj
+ CS2CSEXE_OBJ	= cs2cs.obj gen_cheb.obj p_series.obj emess.obj
+ GEODEXE_OBJ	= geod.obj geod_set.obj geod_for.obj geod_inv.obj emess.obj
++!IFNDEF DEBUG
+ PROJ_DLL 	= proj$(VERSION).dll
++!ELSE
++PROJ_DLL 	= proj$(VERSION)d.dll
++!ENDIF
+ PROJ_EXE    = proj.exe
+ CS2CS_EXE   = cs2cs.exe
+ GEOD_EXE    = geod.exe
+@@ -70,16 +74,26 @@
+ 
+ default:	all
+ 
+-all: proj.lib $(PROJ_EXE) $(CS2CS_EXE) $(GEOD_EXE) $(NAD2BIN_EXE)
++!IFNDEF DEBUG
++PROJ_LIB    =	proj.lib
++!ELSE
++PROJ_LIB    =	projd.lib
++!ENDIF
++    
++!IFNDEF DEBUG
++PROJ_IMP_LIB =	proj_i.lib
++!ELSE
++PROJ_IMP_LIB = proj_id.lib
++!ENDIF
++
++all: $(PROJ_LIB) $(PROJ_IMP_LIB)
++
++$(PROJ_LIB):	$(LIBOBJ)
++	if exist $(PROJ_LIB) del $(PROJ_LIB)
++	lib /out:$(PROJ_LIB) $(LIBOBJ)
+ 
+-proj.lib:	$(LIBOBJ)
+-	if exist proj.lib del proj.lib
+-	lib /out:proj.lib $(LIBOBJ)
+-
+-$(PROJ_DLL):	proj_i.lib
+-
+-proj_i.lib:	$(LIBOBJ)
+-	link /debug /dll /def:proj.def /out:$(PROJ_DLL) /implib:proj_i.lib \
++$(PROJ_IMP_LIB):	$(LIBOBJ)
++	link /debug /dll /def:proj.def /out:$(PROJ_DLL) /implib:$(PROJ_IMP_LIB) \
+ 			$(LIBOBJ)
+ 	if exist $(PROJ_DLL).manifest mt -manifest $(PROJ_DLL).manifest -outputresource:$(PROJ_DLL);2
+ 
+@@ -116,7 +130,6 @@
+ 
+ clean:
+ 	del *.dll
+-	del *.exe
+ 	del *.exp
+ 	del *.manifest
+ 	del *.lib
+@@ -126,11 +139,10 @@
+ install: all
+ 	-mkdir $(INSTDIR)
+ 	-mkdir $(INSTDIR)\bin
+-	-mkdir $(INSTDIR)\share
+ 	-mkdir $(INSTDIR)\lib
+ 	-mkdir $(INSTDIR)\include
+-	copy *.exe $(INSTDIR)\bin
+ 	copy *.dll $(INSTDIR)\bin
++	copy *.pdb $(INSTDIR)\bin
+ 	copy *.lib $(INSTDIR)\lib
+ 	copy proj_api.h $(INSTDIR)\include
+ 	
